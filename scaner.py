@@ -22,6 +22,17 @@ def get_cert(hostname):
     return decode_data
 
 
+def days_left(time_):
+    time_ = time_.decode('ascii')
+    time_ = time.strptime(time_, '%Y%m%d%H%M%SZ')
+    time_ = time.mktime(time_)
+    if (time_ - time.time()) > 0:
+        days = (time_ - time.time())//86400
+    else:
+        days = 0
+    return days
+
+
 # Форматирование даты
 def format_data(time_):
     time_ = time_.decode('ascii')
@@ -73,6 +84,8 @@ def Excel(results):
         ws.column_dimensions["C"].width = 15
         ws.column_dimensions["D"].width = 22
         ws.column_dimensions["E"].width = 22
+        ws.column_dimensions["F"].width = 22
+        ws.column_dimensions["G"].width = 100
 
     # сохранение файла в текущую директорию
     wb.save("results.xlsx")
@@ -88,7 +101,7 @@ results = []
 # Прокручиваем отчеты один за другим
 for file in files:
     addresses = get_hostname("./reports/" + file)
-    result = [["Адрес", "Доступность", "Сертификат", "Действует от", "Годен до"]]
+    result = [["Адрес", "Доступность", "Сертификат", "Действует от", "Годен до", "Осталось дней", "Примечание"]]
     # Стучимся к хостам, проверяем сертификаты и доступность
     for addr in addresses:
         print("\n\naddress: ", addr)
@@ -97,13 +110,15 @@ for file in files:
             try:
                 result.append([addr, "Доступен", "Есть",
                                format_data(decode_data.get_notBefore()),
-                               format_data(decode_data.get_notAfter())])
+                               format_data(decode_data.get_notAfter()),
+                               days_left(decode_data.get_notAfter()),
+                               str(decode_data.get_issuer())])
             except Exception as Ex:
                 print(Ex)
-                result.append([addr, "Доступен", "Нет"])
+                result.append([addr, "Доступен", "Нет", "", "", "", str(Ex)])
         except Exception as Ex:
             print(Ex)
-            result.append([addr, "Не доступен"])
+            result.append([addr, "Не доступен", "", "", "", "", str(Ex)])
 
     results.append([file, result])
 
