@@ -5,13 +5,18 @@ from lxml import objectify
 import openpyxl
 import os
 import datetime
+from openpyxl.styles import PatternFill
+
+
+# Заплатка для ошибки с протоколом
+ssl._create_default_https_context = ssl._create_unverified_context
 
 
 # Получение сертификата с хоста по порту 443
 def get_cert(hostname):
     print("")
     certificate = ssl.get_server_certificate((hostname, 443))
-    print("get_server_certificate: \n", certificate)
+    # print("get_server_certificate: \n", certificate)
 
     decode_data = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, certificate)
 
@@ -22,6 +27,7 @@ def get_cert(hostname):
     return decode_data
 
 
+# Вычисляем оставшиеся дни до конца сертификата
 def days_left(time_):
     time_ = time_.decode('ascii')
     time_ = time.strptime(time_, '%Y%m%d%H%M%SZ')
@@ -59,6 +65,7 @@ def get_hostname(file):
     return addresses
 
 
+# Запись результатов в файл
 def Excel(results):
     # объект
     wb = openpyxl.Workbook()
@@ -67,29 +74,38 @@ def Excel(results):
         sheet_name = result[0]
         rows = result[1]
 
-        # активный лист
-        ws = wb.active
-
         # название страницы
         ws = wb.create_sheet(sheet_name, 0)
         ws.title = sheet_name
 
         # циклом записываем данные
+        x = 0   # Номер ячейки
         for row in rows:
+            x += 1
             ws.append(row)
+            if x != 1 and row[5]:
+                if row[5] == 0:
+                    ws["F" + str(x)].fill = redFill
+                elif row[5] <= 180:
+                    ws["F" + str(x)].fill = orangeFill
 
-        # ирина ячеек
+        # Ширина ячеек
         ws.column_dimensions["A"].width = 15
         ws.column_dimensions["B"].width = 15
         ws.column_dimensions["C"].width = 15
         ws.column_dimensions["D"].width = 22
         ws.column_dimensions["E"].width = 22
-        ws.column_dimensions["F"].width = 22
-        ws.column_dimensions["G"].width = 100
+        ws.column_dimensions["F"].width = 14
+        ws.column_dimensions["G"].width = 10
+        ws.column_dimensions["H"].width = 100
 
     # сохранение файла в текущую директорию
     wb.save("results.xlsx")
 
+
+# Цвета для ячеек
+redFill = PatternFill(start_color="FFEE1111", end_color="FFEE1111", fill_type="solid")
+orangeFill = PatternFill(start_color="FFFFA500", end_color="FFFFA500", fill_type="solid")
 
 # Получаем список отчетов в папке
 directory = "./reports/"
@@ -101,24 +117,29 @@ results = []
 # Прокручиваем отчеты один за другим
 for file in files:
     addresses = get_hostname("./reports/" + file)
-    result = [["Адрес", "Доступность", "Сертификат", "Действует от", "Годен до", "Осталось дней", "Примечание"]]
+    result = [["Адрес", "Доступность", "Сертификат", "Действует от", "Годен до", "Осталось дней", "Подписан", "Примечание"]]
     # Стучимся к хостам, проверяем сертификаты и доступность
     for addr in addresses:
         print("\n\naddress: ", addr)
         try:
             decode_data = get_cert(addr)
             try:
+                if str(decode_data.get_issuer()).endswith("/CN=TAG-CA'>"):
+                    signed = "Да"
+                else:
+                    signed = "Нет"
                 result.append([addr, "Доступен", "Есть",
                                format_data(decode_data.get_notBefore()),
                                format_data(decode_data.get_notAfter()),
                                days_left(decode_data.get_notAfter()),
+                               signed,
                                str(decode_data.get_issuer())])
             except Exception as Ex:
                 print(Ex)
-                result.append([addr, "Доступен", "Нет", "", "", "", str(Ex)])
+                result.append([addr, "Доступен", "Нет", "", "", "", "", str(Ex)])
         except Exception as Ex:
             print(Ex)
-            result.append([addr, "Не доступен", "", "", "", "", str(Ex)])
+            result.append([addr, "Не доступен", "", "", "", "", "", str(Ex)])
 
     results.append([file, result])
 
