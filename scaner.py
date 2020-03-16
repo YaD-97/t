@@ -31,12 +31,15 @@ def get_data(hostname):
         print(URL)
         headers = {'headers': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:51.0) Gecko/20100101 Firefox/51.0'}
         page = requests.get(URL, headers=headers, timeout=10, verify=False)
+        status_code = page.status_code
+        print("status_code: ", status_code)
         page = page.text
-        try:
-            # print(page)
+
+        if page:
             Header = page[page.find('<title>') + 7: page.find('</title>')]
-        except Exception as Ex:
-            Header = "ERROR: " + str(Ex)
+        else:
+            Header = "status_code: " + str(status_code)
+
         Availability = "Доступен"
         if hostname[1] != "443":
             return [hostname[0] + ":" + hostname[1], Availability, Header, Certificate, notBefore, notAfter, Days_left,
