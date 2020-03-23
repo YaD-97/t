@@ -9,6 +9,60 @@ from openpyxl.styles import PatternFill
 import requests
 
 
+"""
+# Проверка редиректа
+def check_redirect(check_url):
+    pattern_meta_redirect = "url='{0,2}?(https?://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|])'{0,2}?"
+    pattern_meta_url = "url="
+    pattern_window_location_href = "window.location.href\s?=\s?\"(https?://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|])\""
+    # pattern_window_location_href = "window.location.href"
+    redirect = ''
+    try:
+        r = requests.get(check_url, headers={"User-Agent": user_agent}, verify=False, timeout=10, stream=True)
+        soup = BeautifulSoup(r.content, "html.parser")
+        html_source = soup.find_all('meta', attrs={'http-equiv': 'refresh'})
+        find_url_tag = re.findall(pattern_meta_url, str(html_source), flags=re.IGNORECASE)
+        find_wlh_url = re.findall(pattern_window_location_href, str(soup.find_all('script')), flags=re.IGNORECASE)
+        # print(r.status_code)
+        # print(soup)
+        # print(r)
+        redirect = r.url
+        if redirect != check_url:
+            # print(redirect)
+            print("Redirect {0} {1}".format(check_url, redirect))
+            return redirect
+        elif html_source:
+            # find_url = re.findall(pattern_meta_redirect, str(html_source),flags=re.IGNORECASE)
+            # print(find_wlh_url)
+            # обнаружение нестандартного тега url, например, в виде javascript или base64
+            if find_url_tag:
+                find_url = re.findall(pattern_meta_redirect, str(html_source), flags=re.IGNORECASE)
+                if find_url:
+                    # cтандартный тег url
+                    check_url = "".join(find_url)
+                    # print("".join(find_url))
+                    return check_url
+                else:
+                    print("check_redirect_1. Подозрительный редирект в метатеге", html_source)
+                    return check_url
+
+        # Подозрительный редирект через window.location.href
+        elif find_wlh_url:
+            # print("".join(find_wlh_url))
+            print("check_redirect. Подозрительный редирект в javascript", soup.script)
+            return check_url
+
+        else:
+            # print("check_redirect_2 - ", check_url)
+            return check_url
+    except Exception as e:
+        print("check_redirect error: ", e)
+        # except requests.exceptions.ConnectionError as e:
+        # redirect = check_url
+        return False
+"""
+
+
 # Заплатка для ошибки с протоколом
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -36,7 +90,13 @@ def get_data(hostname):
         page = page.text
 
         if page:
-            Header = page[page.find('<title>') + 7: page.find('</title>')]
+            if page.find('<title') != -1:
+                Header = page[page.find('<title>') + 7: page.find('</title>')]
+            else:
+                if page.find('<TITLE') != -1:
+                    Header = page[page.find('<TITLE') + 7: page.find('</TITLE>')]
+                else:
+                    Header = page
         else:
             Header = "status_code: " + str(status_code)
 
@@ -133,7 +193,7 @@ def Excel(results):
         for row in rows:
             x += 1
             ws.append(row)
-            if x != 1 and row[6]:
+            if x != 1 and row[6] != "":
                 if row[6] == 0:
                     ws["G" + str(x)].fill = redFill
                 elif row[6] <= 180:
